@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ScholarOctopus</title>
+
+<script src="jquery-1.8.3.min.js"></script>
+<script src="d3.min.js"></script>
+<link href='http://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'>
+
+<style>
+body {
+  font-family: 'Roboto', sans-serif;
+  color: #333;
+  font-weight: 300;
+  font-size: 20px;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.ttip {
+  font-size: 30px;
+  color: #000;
+  font-weight: bold;
+  background-color: #FFF;
+  border: 1px solid black;
+  padding: 3px;
+}
+#vis {
+  width: 100%;
+}
+#info {
+  border-top: 3px solid #000;
+  padding: 10px;
+  background-color: white;
+}
+#ititle {
+  font-size: 30px;
+  color: #000;
+}
+#ititle a {
+  color: #000;
+}
+#ititle a:visited {
+  color: #000;
+}
+#iconf {
+  font-weight: 400;
+  color: #090;
+}
+#paperdetail {
+}
+.sf {
+  width: 400px;
+  height: 40px;
+  margin: 20px;
+  border: 1px solid #000000; 
+  font-size: 30px;
+  padding: 4px;
+  color: #333;
+}
+#sig {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  background-color: white;
+}
+#psearch {
+}
+#sd1 {
+  width:49%;
+  display: inline-block;
+}
+#sd2 {
+  width:49%;
+  display: inline-block;
+}
+.matches {
+  display: inline-block;
+  margin-left: 10px;
+  color: #0A0;
+}
+h1 {
+  padding: 0px;
+  margin: 0px;
+  font-size: 32px;
+  font-weight: 300;
+  color: #000;
+}
+#ischolar a {
+  color: #009;
+}
+#ischolar a:visited {
+  color: #009;
+}
+#bar {
+  position: absolute;
+  right: 0;
+  top:0;
+  width: 400px;
+  border-left: 3px solid #000;
+  padding: 5px;
+  font-size: 16px;
+  background-color: white;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+.nnp {
+  border-bottom: 1px solid black;
+  margin-bottom: 10px;
+}
+.nnv {
+  display: inline;
+  color: #090;
+  margin-right: 5px;
+}
+.nnt {
+  display: inline;
+}
+.nna {
+  color: #900;
+}
+#sig {
+  height: 200px;
+}
+#sig img {
+  margin-bottom: -15px;
+}
+#smallwarning {
+  display: none;
+}
+#describe {
+  padding-left: 20px;
+  padding-right: 20px;
+  margin-bottom: 200px;
+  font-size: 24px;
+}
+hr {
+  border: 1px solid black;
+}
+#nearestexport {
+  display: none;
+}
+.active {
+  fill: #FF0;
+  r: 30;
+}
+.nns {
+  width:14px;
+  height:14px;
+  border-radius:7px;
+  border:1px solid #000;
+  cursor: pointer;
+  display: inline-block;
+  background-color: #FF0;
+}
+#downarrow {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  font-size: 50px;
+  color: #333;
+}
+</style>
+
+<script>
+
+// Utility for string formatting
+if (!String.prototype.format) {
+  String.prototype.format = function() {
+    var args = arguments;
+    return this.replace(/{(\d+)}/g, function(match, number) { 
+      return typeof args[number] != 'undefined'
+        ? args[number]
+        : match
+      ;
+    });
+  };
+}
+
+var data;
+var svg;
+var W,H;
+var bottomPad = 300;
+var rightPad = 400;
+
+function drawEmbedding(data) {
+    // data should be list of datapoints, each with x,y fields and text field
+
+    colormap = {};
+    colormap.CVPR = '#C00';
+    colormap.ICCV = '#0C0';
+    colormap.NIPS = '#00C';
+    colormap.ICML = '#0CC';
+    colormap.ECCV = '#0C0';
+    colormap.ICLR = '#C0C';
+    colormap.BMVC = '#CCC';
+
+    $("#vis").empty();
+    var div = d3.select("#vis");
+
+    H = $("#vis").height();
+    W = $("#vis").width();
+    svg = div.append("svg") // svg is global
+    .attr("width", W)
+    .attr("height", H)
+    .attr('id', 'vissvg');
+
+    var g = svg.selectAll(".b")
+      .data(data)
+      .enter().append("g")
+      .attr("class", "u")
+      .attr('transform', function(d) { return 'translate(' + [d.x * W, d.y * H] + ')'; });
+    
+    g.append("circle")
+      .attr('cx', 0)
+      .attr('cy', 0)
+      .attr('r', 10)
+      .attr('fill', function(d) { return colormap[d.conference]; })
+      .attr('stroke', '#000')
+      .attr('id', function(d,i) { return 'ri' + i; })
+      .attr('class', 'rr');
+
+    // attach mouse over listeners for tooltip
+    g.on("mouseover", function(d){
+      d3.select(this).attr('stroke-width', 4);
+      return tooltip.style("visibility", "visible").text(d.conference + ' ' + d.year + ': ' + d.title);
+    })
+     .on("mousemove", function(){return tooltip.style("top", (event.pageY+20)+"px").style("left",Math.max(0,event.pageX+10-200)+"px");})
+     .on("mouseout", function(){
+      d3.select(this).attr('stroke-width', 1);
+      return tooltip.style("visibility", "hidden");
+    });
+
+    g.on("click", function(d,i) {
+      if (d3.event.defaultPrevented) return; // click suppressed
+      selectPaper(i);
+    });
+
+    var zoomListener = d3.behavior.zoom()
+      .scaleExtent([0.1, 10])
+      .on("zoom", zoomHandler);
+    zoomListener(svg);
+}
+
+function selectPaper(i) {
+  var d = data[i];
+
+  // print info about this paper to info div
+  $("#iconf").text(d.conference + ' ' + d.year);
+  $("#ititle").html('<a href="' + d.pdf + '">' + d.title + '</a>');
+  $("#iauthors").text(d.authors.join(', '));
+  $("#ischolar").html('<a href="http://scholar.google.com/scholar?hl=en&q=' + d.title.split(' ').join('+') + '">Search on Scholar</a>');
+
+  // distinguish the selected paper
+  deSelectPapers(d3.selectAll('.rr'));
+  selectPapers(d3.select('#ri' + i));
+
+  // slide up the text area if it was visible
+  $("#nearestexport").slideUp('fast');
+
+  listNearestNeighborPapers(i);
+}
+
+var dists = []; // make this global
+function listNearestNeighborPapers(i) {
+  $("#nnpapers").html('');
+  var n=data.length;
+  dists = [];
+  var di = data[i];
+  for(var j=0;j<n;j++) {
+    var dd = data[j];
+    dists.push({ix:j, d:Math.sqrt((dd.x-di.x)*(dd.x-di.x) + (dd.y-di.y)*(dd.y-di.y))});
+  }
+  dists.sort(function(a,b) { return a.d - b.d; });
+
+  var dp = d3.select("#nnpapers");
+  for(var j=0;j<10;j++) {
+    var dpp = dp.append('div').attr('class', 'nnp');
+    var ix = dists[j].ix;
+    var d = data[ix];
+    dpp.append('div').attr('class', 'nns').on('click', function(q){
+      return function(){selectPaper(q);};
+    }(ix));// closure
+    dpp.append('div').attr('class', 'nnv').text(d.conference + ' ' + d.year);
+    dpp.append('div').attr('class', 'nnt').html('<a href="' + d.pdf + '">' + d.title + '</a>');
+    dpp.append('div').attr('class', 'nna').text(d.authors.join(', '));
+  }
+}
+
+// zoom handler updates the visualization
+var tx=0, ty=0;
+var ss=1;
+function zoomHandler() {
+  tx = d3.event.translate[0];
+  ty = d3.event.translate[1];
+  ss = d3.event.scale;
+
+  svg.selectAll('.u')
+    .data(data)
+    .attr("transform", function(d) { return "translate(" +
+                                          ((d.x*ss*W + tx)) + "," +
+                                          ((d.y*ss*H + ty)) + ")"; });
+}
+
+function selectPapers(d3sel) {
+  d3sel.attr('r', 20);
+  d3sel.classed('active', true);
+}
+function deSelectPapers(d3sel) {
+  d3sel.attr('r', 10);
+  d3sel.classed('active', false);
+}
+
+var dirty = false;
+$(window).resize(arrangeElements);
+function arrangeElements() {
+
+  // dynamically arrange surround elements
+  var h = $(window).height();
+  var w = $(window).width();
+  $("#vis").height(h - bottomPad);
+  $("#vis").width(w - rightPad);
+  $("#bar").height(h - bottomPad - 10);
+  $("#info").height(bottomPad);
+  $("#sig").css({top: h - 200, right: 10});
+  if(w < 800) {
+    $("#smallwarning").fadeIn();
+  }
+
+  $("#downarrow").css({top: h - 60})
+
+  // resize svg if it exists
+  var svgsel = d3.select('#vissvg');
+  if(!svgsel.empty()) {
+    svgsel.attr("width", w).attr("height", h);
+    dirty = true;
+  }
+}
+
+function redrawEmbedding() {
+  if(dirty) {
+    drawEmbedding(data);
+    dirty = false;
+  }
+}
+
+var tooltip;
+$(window).load(function() {
+  
+  // create tooltip div
+  tooltip = d3.select("body")
+  .append("div")
+  .style("position", "absolute")
+  .style("z-index", "10")
+  .style("visibility", "hidden")
+  .attr('class', 'ttip')
+  .text("");
+
+  setInterval(redrawEmbedding, 200);
+
+  // title search
+  $("#searchfieldt").keyup(function(event){
+    if(event.keyCode == 13){
+      deSelectPapers(d3.selectAll('.rr'));
+      var query = $("#searchfieldt").val().toLowerCase();
+      if(query.length > 0) {
+        var n = 0;
+        for(var i=0;i<data.length;i++) {
+          var t = data[i].title;
+          if(t.toLowerCase().search(query) >= 0) {
+            selectPapers(d3.select('#ri' + i));
+            n += 1;
+          }
+        }
+        $("#tmatches").text(n + ' matches.').fadeIn('fast');
+      }
+    }
+  });
+
+  // authors search
+  $("#searchfielda").keyup(function(event){
+    if(event.keyCode == 13){
+      deSelectPapers(d3.selectAll('.rr'));
+      var query = $("#searchfielda").val().toLowerCase();
+      if(query.length === 0) return;
+      var parts = query.split(' ');
+
+      var n = 0;
+      for(var i=0;i<data.length;i++) {
+        var couldbe = true;
+        for(var j=0;j<parts.length;j++) {
+          var p = parts[j];
+          if(data[i].authorprepro.indexOf(p) === -1) {
+            couldbe = false;
+            break;
+          }
+        }
+        if(couldbe) {
+          n += 1;
+          selectPapers(d3.select('#ri' + i));
+        }
+        $("#amatches").text(n + ' matches.').fadeIn('fast');
+      }
+    }
+  });
+
+  arrangeElements();
+
+  $.getJSON("data5.json", function( j ) {
+    data = j; // store in global
+
+    // now go over the data and do some preprocessing
+    for(var i=0;i<data.length;i++) {
+      var p = data[i];
+      p.authorprepro = p.authors.join(' ').toLowerCase().split(' ');
+    }
+
+    console.log(data.length);
+
+    drawEmbedding(data);
+  });
+});
+
+function exportNearest() {
+  // export nearest neighbors as CSV data, for reading list
+  if(dists.length === 0) return; // errr... 
+
+  var str = 'distance,conference,year,title,authors,pdflink\n';
+  for(var i=0,n=Math.min(50,dists.length);i<n;i++) {
+    var ix = dists[i].ix;
+    var d = data[ix];
+    str += ('{0},{1},{2},{3},{4},{5}\n').format(dists[i].d.toFixed(4), d.conference, d.year, d.title, d.authors.join(';'), d.pdf)
+  }
+  $("#nearestcsv").val(str);
+  $("#nearestexport").slideDown('fast');
+}
+</script>
+
+</head>
+
+<body>
+<div id="bar">
+  <div id="smallwarning">Site not intended for Mobile</div>
+  <button id="exportcsv" style="height:30px;width:100%;" onclick="exportNearest()">Export nearest 50 as CSV</button>
+  <div id="nearestexport">
+    <textarea style="margin: 5px; width:95%; height:200px;" id="nearestcsv"></textarea>
+  </div>
+  <div>Nearest Papers:</div>
+  <hr>
+  <div id="nnpapers">
+  </div>
+</div>
+<div id="vis"></div>
+<div id="info">
+  <div id="psearch">
+    <div id="sd1">
+      Search Titles: <input type="text" id="searchfieldt" class="sf">
+      <div id="tmatches" class="matches"></div>
+    </div>
+    <div id="sd2">
+     Search Authors: <input type="text" id="searchfielda" class="sf">
+     <div id="amatches" class="matches"></div>
+    </div>
+  </div>
+  <div id="paperdetail">
+    <div id="iconf"></div>
+    <div id="ititle"></div>
+    <div id="iauthors"></div>
+    <div id="ischolar"></div>
+  </div>
+</div>
+
+<div id="moreindicator"></div>
+<div id="describe">
+  ScholarOctopus is a collection of pointers to 7000 papers from 34 Computer Vision and Machine Learning conferences (CVPR/ICCV/NIPS/ICML/ECCV/BMVC) between 2006 and 2014. Full stats can be found <a href="stats.txt" target="_blank">here</a>. It is an attempt to enable more rapid discovery of relevant literature. The papers are embedded with t-SNE based on the tfidf vectors computed from bigrams of each paper. I'm starting ScholarOctopus with these conferences because it is my primary area of expertise. Download the structured data for this visualization <a href="out.json">here</a> as JSON. The code for this visualization can be found on <a href="https://github.com/karpathy/svmjs/scholaroctopus">Github</a>.
+</div>
+
+<div id="downarrow">&#x25BC;</div>
+
+<div id="sig">
+<img src="icon.svg" width="227" id="octopus">
+<h1>ScholarOctopus</h1>
+maintained by <a href="https://twitter.com/karpathy">@karpathy</a>
+</div>
+</body>
+
+</html>
