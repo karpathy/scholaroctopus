@@ -145,7 +145,6 @@ hr {
 }
 .active {
   fill: #FF0;
-  r: 30;
 }
 .nns {
   width:14px;
@@ -155,6 +154,7 @@ hr {
   cursor: pointer;
   display: inline-block;
   background-color: #FF0;
+  margin-right: 2px;
 }
 #downarrow {
   position: absolute;
@@ -208,6 +208,11 @@ function drawEmbedding(data) {
     .attr("height", H)
     .attr('id', 'vissvg');
 
+    // shuffle the data to respect drawOrder
+    data.sort(function(a,b){
+      return a.drawOrder - b.drawOrder;
+    });
+
     var g = svg.selectAll(".b")
       .data(data)
       .enter().append("g")
@@ -217,8 +222,8 @@ function drawEmbedding(data) {
     g.append("circle")
       .attr('cx', 0)
       .attr('cy', 0)
-      .attr('r', 10)
-      .attr('fill', function(d) { return colormap[d.conference]; })
+      .attr('r', function(d) { return d.selected ? 20 : 10; })
+      .attr('fill', function(d) { return d.selected ? '#FF0' : colormap[d.conference]; })
       .attr('stroke', '#000')
       .attr('id', function(d,i) { return 'ri' + i; })
       .attr('class', 'rr');
@@ -255,8 +260,8 @@ function selectPaper(i) {
   $("#ischolar").html('<a href="http://scholar.google.com/scholar?hl=en&q=' + d.title.split(' ').join('+') + '">Search on Scholar</a>');
 
   // distinguish the selected paper
-  deSelectPapers(d3.selectAll('.rr'));
-  selectPapers(d3.select('#ri' + i));
+  deSelectAllPapers();
+  selectPapers(i);
 
   // slide up the text area if it was visible
   $("#nearestexport").slideUp('fast');
@@ -305,11 +310,20 @@ function zoomHandler() {
                                           ((d.y*ss*H + ty)) + ")"; });
 }
 
-function selectPapers(d3sel) {
+var curd = 1;
+function selectPapers(i) {
+  var d3sel = d3.select('#ri' + i);
+  data[i].drawOrder = curd;
+  data[i].selected = true;
+  curd++;
   d3sel.attr('r', 20);
   d3sel.classed('active', true);
 }
-function deSelectPapers(d3sel) {
+function deSelectAllPapers() {
+  for(var i=0,n=data.length;i<n;i++) {
+    data[i].selected = false;
+  }
+  var d3sel = d3.selectAll('.rr');
   d3sel.attr('r', 10);
   d3sel.classed('active', false);
 }
@@ -359,23 +373,24 @@ $(window).load(function() {
   .attr('class', 'ttip')
   .text("");
 
-  setInterval(redrawEmbedding, 200);
+  setInterval(redrawEmbedding, 100);
 
   // title search
   $("#searchfieldt").keyup(function(event){
     if(event.keyCode == 13){
-      deSelectPapers(d3.selectAll('.rr'));
+      deSelectAllPapers();
       var query = $("#searchfieldt").val().toLowerCase();
       if(query.length > 0) {
         var n = 0;
         for(var i=0;i<data.length;i++) {
           var t = data[i].title;
           if(t.toLowerCase().search(query) >= 0) {
-            selectPapers(d3.select('#ri' + i));
+            selectPapers(i);
             n += 1;
           }
         }
         $("#tmatches").text(n + ' matches.').fadeIn('fast');
+        if(n > 0) dirty = true;
       }
     }
   });
@@ -383,7 +398,7 @@ $(window).load(function() {
   // authors search
   $("#searchfielda").keyup(function(event){
     if(event.keyCode == 13){
-      deSelectPapers(d3.selectAll('.rr'));
+      deSelectAllPapers();
       var query = $("#searchfielda").val().toLowerCase();
       if(query.length === 0) return;
       var parts = query.split(' ');
@@ -400,10 +415,11 @@ $(window).load(function() {
         }
         if(couldbe) {
           n += 1;
-          selectPapers(d3.select('#ri' + i));
+          selectPapers(i);
         }
-        $("#amatches").text(n + ' matches.').fadeIn('fast');
       }
+      if(n > 0) dirty = true;
+      $("#amatches").text(n + ' matches.').fadeIn('fast');
     }
   });
 
@@ -416,6 +432,8 @@ $(window).load(function() {
     for(var i=0;i<data.length;i++) {
       var p = data[i];
       p.authorprepro = p.authors.join(' ').toLowerCase().split(' ');
+      p.drawOrder = 0;
+      p.selected = false;
     }
 
     console.log(data.length);
@@ -475,7 +493,7 @@ function exportNearest() {
 
 <div id="moreindicator"></div>
 <div id="describe">
-  ScholarOctopus is a collection of pointers to 7000 papers from 34 Computer Vision and Machine Learning conferences (CVPR/ICCV/NIPS/ICML/ECCV/BMVC) between 2006 and 2014. Full stats can be found <a href="stats.txt" target="_blank">here</a>. It is an attempt to enable more rapid discovery of relevant literature. The papers are embedded with t-SNE based on the tfidf vectors computed from bigrams of each paper. I'm starting ScholarOctopus with these conferences because it is my primary area of expertise. Download the structured data for this visualization <a href="out.json">here</a> as JSON. The code for this visualization can be found on <a href="https://github.com/karpathy/svmjs/scholaroctopus">Github</a>.
+  ScholarOctopus is a collection of pointers to 7000 papers from 34 Computer Vision and Machine Learning conferences (CVPR/ICCV/NIPS/ICML/ECCV/BMVC) between 2006 and 2014. Full stats can be found <a href="stats.txt" target="_blank">here</a>. It is an attempt to enable more rapid discovery of relevant literature. The papers are embedded with t-SNE based on the tfidf vectors computed from bigrams of each paper. I'm starting ScholarOctopus with these conferences because it is my primary area of expertise. Download the structured data for this visualization <a href="out.json">here</a> as JSON. The code for this visualization can be found on <a href="https://github.com/karpathy/scholaroctopus">Github</a>.
 </div>
 
 <div id="downarrow">&#x25BC;</div>
